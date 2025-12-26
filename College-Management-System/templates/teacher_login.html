@@ -1,0 +1,455 @@
+<!-- Save as teacher_login.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Teacher Login & Marks Upload — Face Attendance</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    :root {
+      --accent-blue: #4e73df;
+      --accent-teal: #1cc88a;
+    }
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg,#f6f8ff 0%, #e9f8f1 100%);
+      min-height: 100vh;
+      margin: 0;
+      padding: 2rem;
+    }
+    .card {
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(20,20,40,0.06);
+    }
+    .brand {
+      color: var(--accent-blue);
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+    .small-muted { color: #6b7280; }
+    .btn-primary-custom {
+      background: linear-gradient(90deg, var(--accent-blue), #2b5fd6);
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      padding: 0.5rem 1rem;
+    }
+    .btn-outline-teal {
+      border-radius: 999px;
+      border: 1px solid var(--accent-teal);
+      color: var(--accent-teal);
+    }
+    pre.note { background:#fff8dc; padding:10px; border-radius:6px; }
+    table td, table th { vertical-align: middle; }
+    .hidden { display:none !important; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="row justify-content-center mb-4">
+    <div class="col-md-10">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <div class="brand fs-4">Face Attendance — Teacher Portal</div>
+          <div class="small-muted">Login to upload and manage sessional marks (students can view in Results).</div>
+        </div>
+        <div>
+          <a href="/results" class="btn btn-outline-teal btn-sm">Open Results (Student view)</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOGIN CARD -->
+  <div class="row justify-content-center">
+    <div class="col-lg-10">
+      <div class="card p-4">
+        <div id="loginSection">
+          <h5 class="mb-3">Teacher Login</h5>
+          <form id="loginForm" class="row g-2 align-items-end">
+            <div class="col-md-4">
+              <label class="form-label small">Teacher ID</label>
+              <input required name="teacherId" id="teacherId" type="text" class="form-control" placeholder="e.g. TCH-2025-01">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">Name</label>
+              <input required name="teacherName" id="teacherName" type="text" class="form-control" placeholder="e.g. Priya Singh">
+            </div>
+            <div class="col-md-4 d-grid">
+              <button class="btn btn-primary-custom" type="submit">Log in</button>
+            </div>
+          </form>
+
+          <div class="mt-3 small-muted">
+            <div>Note: This example uses client-side login for demo. For production, replace this with a proper authentication flow (email/SSO/password + server session).</div>
+          </div>
+        </div>
+
+        <!-- DASHBOARD (hidden until login) -->
+        <div id="dashboard" class="hidden mt-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+              <strong id="loggedTeacher"></strong>
+              <div class="small-muted" id="loggedTeacherId"></div>
+            </div>
+            <div class="d-flex gap-2">
+              <button id="logoutBtn" class="btn btn-sm btn-outline-secondary">Logout</button>
+            </div>
+          </div>
+
+          <hr>
+
+          <!-- Upload CSV or add individually -->
+          <div class="row gy-3">
+            <div class="col-lg-6">
+              <h6>Upload Sessional Marks (CSV)</h6>
+              <p class="small-muted mb-2">CSV columns: <code>student_id,name,class,roll_no,marks</code>. Header row optional.</p>
+
+              <input type="file" id="csvFile" accept=".csv,text/csv" class="form-control mb-2">
+              <div class="d-flex gap-2 mb-2">
+                <button id="parseCsvBtn" class="btn btn-primary-custom btn-sm">Parse & Preview</button>
+                <button id="clearPreviewBtn" class="btn btn-outline-secondary btn-sm">Clear Preview</button>
+              </div>
+
+              <div id="csvPreviewWrap" class="hidden">
+                <h6 class="mt-2">Preview</h6>
+                <div style="max-height:260px; overflow:auto;">
+                  <table id="previewTable" class="table table-sm table-bordered bg-white"></table>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-lg-6">
+              <h6>Add / Edit Single Entry</h6>
+              <form id="singleEntryForm" class="row g-2">
+                <div class="col-6">
+                  <input id="stuId" type="text" class="form-control" placeholder="Student ID">
+                </div>
+                <div class="col-6">
+                  <input id="stuName" type="text" class="form-control" placeholder="Student Name">
+                </div>
+                <div class="col-4">
+                  <input id="stuClass" type="text" class="form-control" placeholder="Class e.g. 10A">
+                </div>
+                <div class="col-4">
+                  <input id="stuRoll" type="text" class="form-control" placeholder="Roll No">
+                </div>
+                <div class="col-4">
+                  <input id="stuMarks" type="number" class="form-control" placeholder="Marks">
+                </div>
+                <div class="col-12 d-flex gap-2">
+                  <button id="addEntryBtn" type="button" class="btn btn-outline-teal btn-sm">Add / Update</button>
+                  <button id="saveAllBtn" type="button" class="btn btn-primary-custom btn-sm">Save All (persist)</button>
+                  <button id="exportCsvBtn" type="button" class="btn btn-sm btn-outline-secondary">Export CSV</button>
+                </div>
+              </form>
+
+              <div class="mt-3">
+                <div class="small-muted">Saved marks are available to students in the Results page. For production, POST saved marks to your server at <code>/api/upload-marks</code>.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Current table -->
+          <div class="mt-3">
+            <h6>Current Session Marks</h6>
+            <div style="max-height:320px; overflow:auto;">
+              <table id="marksTable" class="table table-sm table-striped bg-white"></table>
+            </div>
+          </div>
+
+          <!-- messages -->
+          <div id="msg" class="mt-2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script>
+  // --- Utilities ---
+  function show(el){ el.classList.remove('hidden'); }
+  function hide(el){ el.classList.add('hidden'); }
+  function qs(id){ return document.getElementById(id); }
+  function nowISO(){ return new Date().toISOString(); }
+  function downloadFile(filename, txt){
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(txt);
+    a.download = filename;
+    a.click();
+  }
+
+  // application state
+  const STORAGE_KEY = 'sessional_marks'; // stores object: { marks: [ ... ], lastSavedBy: {id,name}, lastSavedAt }
+  let workingMarks = []; // array of mark objects: { student_id, name, class, roll_no, marks }
+
+  // --- Login flow (client-side for demo) ---
+  const loginForm = qs('loginForm');
+  const dashboard = qs('dashboard');
+  const loginSection = qs('loginSection');
+  const loggedTeacher = qs('loggedTeacher');
+  const loggedTeacherId = qs('loggedTeacherId');
+  const logoutBtn = qs('logoutBtn');
+  const msg = qs('msg');
+
+  function loadSessionFromStorage(){
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch(e){ return null; }
+  }
+
+  function renderMarksTable(){
+    const table = qs('marksTable');
+    if (!workingMarks.length){
+      table.innerHTML = '<thead><tr><th>No marks yet</th></tr></thead>';
+      return;
+    }
+    let html = '<thead class="table-light"><tr><th>#</th><th>Student ID</th><th>Name</th><th>Class</th><th>Roll</th><th>Marks</th><th>Actions</th></tr></thead><tbody>';
+    workingMarks.forEach((m, i) => {
+      html += `<tr>
+        <td>${i+1}</td>
+        <td>${escapeHtml(m.student_id)}</td>
+        <td>${escapeHtml(m.name)}</td>
+        <td>${escapeHtml(m.class || '')}</td>
+        <td>${escapeHtml(m.roll_no || '')}</td>
+        <td>${escapeHtml(String(m.marks))}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-secondary" data-action="edit" data-index="${i}">Edit</button>
+          <button class="btn btn-sm btn-danger" data-action="delete" data-index="${i}">Delete</button>
+        </td>
+      </tr>`;
+    });
+    html += '</tbody>';
+    table.innerHTML = html;
+
+    // wire action buttons
+    table.querySelectorAll('button[data-action]').forEach(b => {
+      b.addEventListener('click', (ev) => {
+        const idx = Number(ev.currentTarget.dataset.index);
+        const action = ev.currentTarget.dataset.action;
+        if (action === 'edit') fillEntryForEdit(idx);
+        if (action === 'delete') {
+          if (!confirm('Delete this entry?')) return;
+          workingMarks.splice(idx,1);
+          renderMarksTable();
+        }
+      });
+    });
+  }
+
+  function escapeHtml(s){
+    return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+  }
+
+  // --- Login form handler ---
+  loginForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const id = qs('teacherId').value.trim();
+    const name = qs('teacherName').value.trim();
+    if (!id || !name) { alert('Please enter both Teacher ID and Name'); return; }
+    // store login in sessionStorage
+    sessionStorage.setItem('loggedTeacher', JSON.stringify({ id, name }));
+    showDashboardFor({ id, name });
+  });
+
+  // show dashboard if teacher already logged in
+  (function init(){
+    const logged = sessionStorage.getItem('loggedTeacher');
+    if (logged){
+      showDashboardFor(JSON.parse(logged));
+    } else {
+      hide(dashboard);
+      show(loginSection);
+    }
+    // try load stored marks into workingMarks for preview/edit (not automatically displayed until login)
+    const saved = loadSessionFromStorage();
+    if (saved && Array.isArray(saved.marks)) {
+      // keep them, but only display after login
+      // But for simplicity we'll set workingMarks now so teacher can edit latest marks
+      workingMarks = saved.marks.slice();
+    }
+    renderMarksTable();
+  })();
+
+  function showDashboardFor(teacher){
+    hide(loginSection);
+    show(dashboard);
+    loggedTeacher.textContent = teacher.name;
+    loggedTeacherId.textContent = teacher.id;
+    showMsg(`Logged in as ${teacher.name} (${teacher.id})`);
+    renderMarksTable();
+  }
+
+  logoutBtn.addEventListener('click', () => {
+    sessionStorage.removeItem('loggedTeacher');
+    // reset UI
+    hide(dashboard);
+    show(loginSection);
+    showMsg('Logged out');
+  });
+
+  // --- CSV parse & preview ---
+  qs('parseCsvBtn').addEventListener('click', () => {
+    const file = qs('csvFile').files[0];
+    if (!file) { alert('Please choose a CSV file'); return; }
+    const reader = new FileReader();
+    reader.onload = function(e){
+      const text = e.target.result;
+      const parsed = parseCSV(text);
+      if (!parsed.length){ alert('No rows found in CSV'); return; }
+      // merge parsed into workingMarks but do not overwrite existing by default
+      // We'll replace workingMarks with parsed for simpler workflow
+      workingMarks = parsed;
+      populatePreviewTable(parsed);
+      renderMarksTable();
+      showMsg(`Parsed ${parsed.length} rows from CSV`);
+    };
+    reader.readAsText(file);
+  });
+
+  // parse CSV to array of objects with required fields
+  function parseCSV(text){
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length>0);
+    if (!lines.length) return [];
+    // detect header
+    const first = lines[0].split(',');
+    const hasHeader = first.some(x => /student[_\s]?id|name|class|roll|marks/i.test(x));
+    const rows = [];
+    for (let i = hasHeader ? 1 : 0; i < lines.length; i++){
+      const cols = lines[i].split(',').map(c => c.trim());
+      // flexible column mapping: student_id,name,class,roll_no,marks
+      const student_id = cols[0] || '';
+      const name = cols[1] || '';
+      const cls = cols[2] || '';
+      const roll_no = cols[3] || '';
+      const marks = cols[4] !== undefined ? Number(cols[4]) : (cols[3] !== undefined && hasHeader ? Number(cols[3]) : 0);
+      rows.push({ student_id, name, class: cls, roll_no, marks });
+    }
+    return rows;
+  }
+
+  function populatePreviewTable(arr){
+    const wrap = qs('csvPreviewWrap');
+    const tbl = qs('previewTable');
+    if (!arr.length){
+      hide(wrap);
+      return;
+    }
+    show(wrap);
+    let html = '<thead class="table-light"><tr><th>#</th><th>Student ID</th><th>Name</th><th>Class</th><th>Roll</th><th>Marks</th></tr></thead><tbody>';
+    arr.forEach((r,i) => {
+      html += `<tr><td>${i+1}</td><td>${escapeHtml(r.student_id)}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.class||'')}</td><td>${escapeHtml(r.roll_no||'')}</td><td>${escapeHtml(String(r.marks))}</td></tr>`;
+    });
+    html += '</tbody>';
+    tbl.innerHTML = html;
+  }
+
+  qs('clearPreviewBtn').addEventListener('click', () => {
+    qs('csvFile').value = '';
+    hide(qs('csvPreviewWrap'));
+    showMsg('Preview cleared');
+  });
+
+  // --- Single entry add/update ---
+  qs('addEntryBtn').addEventListener('click', () => {
+    const student_id = qs('stuId').value.trim();
+    const name = qs('stuName').value.trim();
+    const cls = qs('stuClass').value.trim();
+    const roll_no = qs('stuRoll').value.trim();
+    const marks = qs('stuMarks').value.trim();
+    if (!student_id || !name) { alert('Student ID and name are required'); return; }
+    const existingIdx = workingMarks.findIndex(m => m.student_id === student_id);
+    const entry = { student_id, name, class: cls, roll_no, marks: marks === '' ? 0 : Number(marks) };
+    if (existingIdx >= 0) {
+      // update
+      workingMarks[existingIdx] = entry;
+      showMsg('Updated existing entry');
+    } else {
+      workingMarks.push(entry);
+      showMsg('Added new entry');
+    }
+    clearSingleEntryInputs();
+    renderMarksTable();
+  });
+
+  function fillEntryForEdit(idx){
+    const m = workingMarks[idx];
+    qs('stuId').value = m.student_id;
+    qs('stuName').value = m.name;
+    qs('stuClass').value = m.class || '';
+    qs('stuRoll').value = m.roll_no || '';
+    qs('stuMarks').value = m.marks !== undefined ? String(m.marks) : '';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function clearSingleEntryInputs(){
+    qs('stuId').value = '';
+    qs('stuName').value = '';
+    qs('stuClass').value = '';
+    qs('stuRoll').value = '';
+    qs('stuMarks').value = '';
+  }
+
+  // --- Save (persist) the marks locally and optionally to server ---
+  qs('saveAllBtn').addEventListener('click', () => {
+    if (!workingMarks.length){ alert('No marks to save'); return; }
+    const logged = sessionStorage.getItem('loggedTeacher');
+    const by = logged ? JSON.parse(logged) : { id: 'unknown', name: 'Unknown' };
+    const payload = {
+      marks: workingMarks,
+      lastSavedBy: by,
+      lastSavedAt: nowISO()
+    };
+    // store in localStorage for Results page to read
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    showMsg('Marks saved locally. Students can now view them in Results.');
+    // Optional: send to server for persistence
+    // sendMarksToServer(payload);
+  });
+
+  // export csv
+  qs('exportCsvBtn').addEventListener('click', () => {
+    if (!workingMarks.length){ alert('No marks to export'); return; }
+    const header = 'student_id,name,class,roll_no,marks\n';
+    const rows = workingMarks.map(m => `${m.student_id},${m.name},${m.class||''},${m.roll_no||''},${m.marks}`).join('\n');
+    downloadFile(`sessional_marks_${new Date().toISOString().slice(0,10)}.csv`, header + rows);
+  });
+
+  // --- simple message helper ---
+  function showMsg(txt, ttl=3500){
+    msg.innerHTML = `<div class="alert alert-success py-2 px-3">${escapeHtml(txt)}</div>`;
+    if (ttl) setTimeout(()=> msg.innerHTML = '', ttl);
+  }
+
+  // --- optional: small server-post helper (commented) ---
+  async function sendMarksToServer(payload){
+    // Example: send to your backend. Uncomment and adapt for production.
+    try {
+      const res = await fetch('/api/upload-marks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('Server rejected upload');
+      showMsg('Marks uploaded to server successfully');
+    } catch (err) {
+      showMsg('Could not upload to server: ' + err.message);
+    }
+  }
+
+  // --- small CSV drag/drop convenience (optional) ---
+  ;(function(){
+    const dropZone = qs('csvFile');
+    // not enabling fancy drag-drop to keep it s
+})();
+
+</script>
+
+</body>
+</html>

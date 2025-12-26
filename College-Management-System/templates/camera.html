@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mark Attendance - Face Recognition</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #4e73df, #1cc88a);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .navbar {
+      background: rgba(0, 0, 0, 0.85);
+    }
+
+    .container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      padding: 2rem;
+    }
+
+    .camera-card {
+      background: #fff;
+      color: #333;
+      border-radius: 1.2rem;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+      padding: 2rem;
+      text-align: center;
+      max-width: 600px;
+      width: 100%;
+      animation: fadeIn 1s ease-in-out;
+    }
+
+    video {
+      width: 100%;
+      border-radius: 1rem;
+      margin-bottom: 1rem;
+      border: 3px solid #4e73df;
+    }
+
+    #status {
+      margin-top: 1rem;
+      font-weight: bold;
+      color: #4e73df;
+    }
+
+    footer {
+      background: rgba(0,0,0,0.85);
+      color: #ccc;
+      text-align: center;
+      padding: 0.8rem;
+      font-size: 0.95rem;
+    }
+
+    footer span {
+      font-weight: bold;
+      color: #1cc88a;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-dark px-3">
+    <a class="navbar-brand fw-bold" href="#">Face Attendance - Camera</a>
+    <a href="/index" class="btn btn-sm btn-light">Home</a>
+  </nav>
+
+  <!-- Camera Section -->
+  <div class="container">
+    <div class="camera-card">
+      <h2 class="mb-3">📷 Marking Your Attendance...</h2>
+      <video id="video" autoplay playsinline></video>
+      <p id="status"></p>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <small>© 2025 Face Attendance System | Created by <span>SSS Team</span></small>
+  </footer>
+
+  <!-- JS for Camera -->
+  <script>
+    const video = document.getElementById('video');
+    const statusText = document.getElementById('status');
+
+    // Access webcam
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        video.srcObject = stream;
+
+        // Wait for video to start, then capture automatically
+        video.onloadedmetadata = () => {
+          setTimeout(captureAndSend, 2000); // auto-capture after 2 seconds
+        };
+      })
+      .catch(err => {
+        statusText.innerText = "⚠️ Camera access denied!";
+      });
+
+    function captureAndSend() {
+      let canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      let ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      let imageData = canvas.toDataURL('image/png');
+
+      // Send to Flask backend
+      fetch("/mark_attendance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: imageData })
+      })
+      .then(res => res.text())
+      .then(data => {
+        statusText.innerText = "✅ " + data;
+        statusText.style.color = "#1cc88a";
+      })
+      .catch(err => {
+        statusText.innerText = "❌ Error marking attendance.";
+        statusText.style.color = "red";
+      });
+    }
+  </script>
+
+</body>
+</html>

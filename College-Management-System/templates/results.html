@@ -1,0 +1,420 @@
+<!-- Save as results.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Results — Face Attendance System</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root { --accent-blue: #4e73df; --accent-green: #1cc88a; }
+    body { font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; background: #f6f8fb; padding: 24px; }
+    .card { border-radius: 10px; box-shadow: 0 8px 24px rgba(12,20,40,0.06); }
+    .brand { color: var(--accent-blue); font-weight:700; }
+    .helper { color: #6b7280; font-size: .95rem; }
+    .no-data { color:#9aa3b2; padding:24px; text-align:center; }
+    .result-box { background: #fff; padding: 18px; border-radius:8px; }
+    .print-area { padding: 12px; background: #fff; border-radius:8px; }
+    @media print {
+      body * { visibility: hidden; }
+      .print-area, .print-area * { visibility: visible; }
+      .print-area { position: absolute; left: 0; top: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="row mb-3">
+    <div class="col">
+      <h3 class="brand">Face Attendance — Results</h3>
+      <div class="helper">Enter your Roll Number to download your semester results (all 8 semesters).</div>
+    </div>
+    <div class="col-auto">
+      <a href="/" class="btn btn-outline-secondary btn-sm">Home</a>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-5">
+      <div class="card p-3">
+        <h5 class="mb-2">Student Lookup</h5>
+        <form id="lookupForm" class="row g-2 align-items-end">
+          <div class="col-12">
+            <label class="form-label small">Roll Number</label>
+            <input id="rollInput" class="form-control" placeholder="Enter roll no (e.g. 001)" required>
+          </div>
+          <div class="col-auto">
+            <button class="btn btn-primary" type="submit">Lookup</button>
+          </div>
+          <div class="col-auto">
+            <button id="clearBtn" class="btn btn-outline-secondary" type="button">Clear</button>
+          </div>
+        </form>
+
+        <hr>
+
+        <div class="mt-2">
+          <button id="downloadCsvBtn" class="btn btn-sm btn-outline-primary" disabled>Download CSV (8 sem)</button>
+          <button id="printBtn" class="btn btn-sm btn-outline-success" disabled>Print / Save as PDF</button>
+        </div>
+
+        <div id="statusMsg" class="mt-3"></div>
+      </div>
+
+      <div class="card p-3 mt-3">
+        <h6 class="mb-2">Admin: Upload Results JSON</h6>
+        <p class="helper mb-2">(For demo) Upload a JSON file that contains an array of student objects with a <code>semesters</code> array. Admin upload requires a passphrase for safety.</p>
+        <div class="d-flex gap-2">
+          <input id="fileUpload" type="file" accept=".json,application/json" class="form-control form-control-sm">
+          <button id="uploadBtn" class="btn btn-sm btn-outline-primary">Upload</button>
+        </div>
+        <div class="mt-2 small text-muted">Local demo only — in production, replace this with a server API.</div>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      <div id="resultArea" class="card p-3 result-box">
+        <div id="noSelection" class="no-data">
+          <div style="font-size:18px; font-weight:600;">No student selected</div>
+          <div class="helper">Enter your roll no to view and download your 8-semester results.</div>
+        </div>
+
+        <div id="studentResult" class="hidden">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <h5 id="stuName"></h5>
+              <div class="small text-muted" id="stuMeta"></div>
+            </div>
+            <div class="text-end">
+              <div class="small text-muted">Last updated: <span id="lastUpdated">—</span></div>
+              <div class="small text-muted">Uploaded by: <span id="uploadedBy">—</span></div>
+            </div>
+          </div>
+
+          <hr>
+
+          <div class="print-area" id="printArea">
+            <table class="table table-sm">
+              <thead class="table-light">
+                <tr>
+                  <th>Semester</th>
+                  <th>Year</th>
+                  <th>Marks</th>
+                  <th>GPA</th>
+                </tr>
+              </thead>
+              <tbody id="semTableBody"></tbody>
+              <tfoot>
+                <tr>
+                  <th colspan="2">Aggregate</th>
+                  <th id="totalMarks">-</th>
+                  <th id="avgGpa">-</th>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div class="mt-2 d-flex gap-2">
+            <button id="downloadCsvBtn2" class="btn btn-primary btn-sm">Download CSV</button>
+            <button id="printBtn2" class="btn btn-outline-success btn-sm">Print / Save as PDF</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card p-3 mt-3">
+        <h6>Notes</h6>
+        <ul>
+          <li>Results are loaded from local browser storage for demo. In production, the results should be fetched from server-side storage.</li>
+          <li>CSV download includes all listed semesters for the student.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Utility helpers
+  const qs = id => document.getElementById(id);
+  const STORAGE_KEY = 'semester_results'; // expected localStorage key
+
+  // DOM
+  const lookupForm = qs('lookupForm');
+  const rollInput = qs('rollInput');
+  const statusMsg = qs('statusMsg');
+  const noSelection = qs('noSelection');
+  const studentResult = qs('studentResult');
+  const stuName = qs('stuName');
+  const stuMeta = qs('stuMeta');
+  const semTableBody = qs('semTableBody');
+  const totalMarksEl = qs('totalMarks');
+  const avgGpaEl = qs('avgGpa');
+  const lastUpdated = qs('lastUpdated');
+  const uploadedBy = qs('uploadedBy');
+  const downloadCsvBtn = qs('downloadCsvBtn');
+  const printBtn = qs('printBtn');
+  const downloadCsvBtn2 = qs('downloadCsvBtn2');
+  const printBtn2 = qs('printBtn2');
+  const clearBtn = qs('clearBtn');
+
+  // file upload controls
+  const fileUpload = qs('fileUpload');
+  const uploadBtn = qs('uploadBtn');
+
+  // sample data (demo) - only used if no stored data found
+  const demoData = [
+    {
+      "roll_no":"12",
+      "student_id":"STD-2025-12",
+      "name":"Rahul Kumar",
+      "class":"10A",
+      "semesters":[
+        {"sem":1,"year":2021,"marks":610,"gpa":6.8},
+        {"sem":2,"year":2021,"marks":625,"gpa":7.1},
+        {"sem":3,"year":2022,"marks":640,"gpa":7.4},
+        {"sem":4,"year":2022,"marks":655,"gpa":7.6},
+        {"sem":5,"year":2023,"marks":660,"gpa":7.7},
+        {"sem":6,"year":2023,"marks":670,"gpa":7.9},
+        {"sem":7,"year":2024,"marks":675,"gpa":8.0},
+        {"sem":8,"year":2024,"marks":690,"gpa":8.3}
+      ]
+    },
+    
+    {
+      "roll_no":"15",
+      "student_id":"STD-2025-15",
+      "name":"Aisha Sharma",
+      "class":"10B",
+      "semesters":[
+        {"sem":1,"year":2021,"marks":590,"gpa":6.6},
+        {"sem":2,"year":2021,"marks":605,"gpa":6.9},
+        {"sem":3,"year":2022,"marks":630,"gpa":7.2},
+        {"sem":4,"year":2022,"marks":645,"gpa":7.4},
+        {"sem":5,"year":2023,"marks":650,"gpa":7.5},
+        {"sem":6,"year":2023,"marks":660,"gpa":7.7},
+        {"sem":7,"year":2024,"marks":680,"gpa":8.1},
+        {"sem":8,"year":2024,"marks":695,"gpa":8.4}
+      ]
+    }
+  ];
+
+  // load stored records or demo
+  function loadRecords(){
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return demoData;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return demoData;
+      return parsed;
+    } catch(e){
+      console.error('Could not parse stored semester_results', e);
+      return demoData;
+    }
+  }
+
+  // find student by roll no (string match)
+  function findStudentByRoll(roll){
+    const records = loadRecords();
+    return records.find(r => String(r.roll_no).trim() === String(roll).trim());
+  }
+
+  // render student result view
+  function renderStudent(student){
+    if (!student) {
+      noSelection.style.display = '';
+      studentResult.classList.add('hidden');
+      downloadCsvBtn.disabled = true;
+      printBtn.disabled = true;
+      return;
+    }
+    noSelection.style.display = 'none';
+    studentResult.classList.remove('hidden');
+
+    stuName.textContent = `${student.name} (${student.student_id || ''})`;
+    stuMeta.textContent = `${student.class || ''} • Roll: ${student.roll_no}`;
+
+    // fill table body with sem 1..8 (ensure 8 rows)
+    const sems = Array.isArray(student.semesters) ? student.semesters.slice() : [];
+    // create a map by sem
+    const map = {};
+    sems.forEach(s => { map[Number(s.sem)] = s; });
+
+    let totalMarks = 0;
+    let totalGpa = 0;
+    let gpaCount = 0;
+    let rowsHtml = '';
+    for (let i=1;i<=8;i++){
+      const s = map[i];
+      const marks = s ? (s.marks ?? '-') : '-';
+      const year = s ? (s.year ?? '-') : '-';
+      const gpa = s ? (s.gpa ?? '-') : '-';
+      rowsHtml += `<tr><td>Sem ${i}</td><td>${year}</td><td>${marks}</td><td>${gpa}</td></tr>`;
+      if (typeof marks === 'number') totalMarks += marks;
+      if (typeof s?.gpa === 'number') { totalGpa += s.gpa; gpaCount++; }
+    }
+    semTableBody.innerHTML = rowsHtml;
+    totalMarksEl.textContent = gpaCount ? String(totalMarks) : (totalMarks ? String(totalMarks) : '-');
+    avgGpaEl.textContent = gpaCount ? ( (totalGpa / gpaCount).toFixed(2) ) : '-';
+
+    // metadata
+    const storeRaw = localStorage.getItem(STORAGE_KEY);
+    try {
+      const parsed = JSON.parse(storeRaw || 'null');
+      if (parsed && parsed._meta) {
+        lastUpdated.textContent = parsed._meta.lastSavedAt || '-';
+        uploadedBy.textContent = parsed._meta.lastSavedBy?.name ? `${parsed._meta.lastSavedBy.name} (${parsed._meta.lastSavedBy.id||''})` : '-';
+      } else {
+        lastUpdated.textContent = '-';
+        uploadedBy.textContent = '-';
+      }
+    } catch(e){
+      lastUpdated.textContent = '-';
+      uploadedBy.textContent = '-';
+    }
+
+    // enable download/print
+    downloadCsvBtn.disabled = false;
+    printBtn.disabled = false;
+  }
+
+  // form submit
+  lookupForm.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const roll = rollInput.value.trim();
+    if (!roll) { status('Enter a roll no', 'warning'); return; }
+    const student = findStudentByRoll(roll);
+    if (!student) {
+      renderStudent(null);
+      status(`No records found for roll no "${roll}"`, 'danger');
+      return;
+    }
+    renderStudent(student);
+    status('Student found', 'success');
+    // bind download button to this student
+    downloadCsvBtn.onclick = () => downloadStudentCsv(student);
+    downloadCsvBtn2.onclick = () => downloadStudentCsv(student);
+    printBtn.onclick = () => window.print();
+    printBtn2.onclick = () => window.print();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    rollInput.value = '';
+    renderStudent(null);
+    status('');
+  });
+
+  function status(text, type='') {
+    if (!text) { statusMsg.innerHTML = ''; return; }
+    const cls = type === 'danger' ? 'danger' : (type === 'warning' ? 'warning' : 'success');
+    statusMsg.innerHTML = `<div class="alert alert-${cls} py-1">${escapeHtml(text)}</div>`;
+    setTimeout(()=> statusMsg.innerHTML = '', 4000);
+  }
+
+  function escapeHtml(s){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+  // build CSV from student record
+  function downloadStudentCsv(student){
+    if (!student) return;
+    const headers = ['roll_no','student_id','name','class','semester','year','marks','gpa'];
+    const rows = [];
+    const sems = Array.isArray(student.semesters) ? student.semesters : [];
+    // map sem index to object
+    const map = {};
+    sems.forEach(s => map[s.sem] = s);
+    for (let i=1;i<=8;i++){
+      const s = map[i] || {};
+      rows.push([
+        `"${(student.roll_no||'')}"`,
+        `"${(student.student_id||'')}"`,
+        `"${(student.name||'')}"`,
+        `"${(student.class||'')}"`,
+        `"${i}"`,
+        `"${s.year||''}"`,
+        `${s.marks !== undefined ? s.marks : ''}`,
+        `${s.gpa !== undefined ? s.gpa : ''}`
+      ].join(','));
+    }
+    const csv = headers.join(',') + '\n' + rows.join('\n');
+    const fname = `results_${student.roll_no}_8sem.csv`;
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = fname;
+    a.click();
+  }
+
+  // Admin upload (local demo)
+  uploadBtn.addEventListener('click', async () => {
+    const f = fileUpload.files[0];
+    if (!f) { alert('Choose a JSON file to upload'); return; }
+    // simple passphrase check
+    const pass = prompt('Enter admin passphrase to upload (demo):');
+    if (!pass || pass !== 'admin123') { alert('Wrong passphrase'); return; }
+    try {
+      const text = await f.text();
+      const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed)) {
+        alert('JSON must be an array of student objects');
+        return;
+      }
+      // add meta wrapper so UI can show lastSavedBy / lastSavedAt if desired
+      const payload = parsed;
+      const meta = { lastSavedAt: new Date().toISOString(), lastSavedBy: { id: 'admin', name: 'Local Admin' } };
+      // store meta in wrapper object so legacy format (just array) still works
+      // we'll store as object to preserve meta
+      const toStore = { _meta: meta, records: payload };
+      // BUT existing loader expects array or object - to be flexible, we'll write back as array (for compatibility),
+      // plus store a companion key with meta. Simpler: store a combined object under STORAGE_KEY.
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ _meta: meta, records: payload }));
+      status('Uploaded results to localStorage (demo)', 'success');
+    } catch(e) {
+      console.error(e);
+      alert('Invalid JSON file');
+    }
+  });
+
+  // adapt loadRecords to accept both old array and new wrapper object
+  (function overrideLoadRecords(){
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        // already array - nothing to do
+        return;
+      }
+      if (parsed && parsed.records && Array.isArray(parsed.records)) {
+        // keep as-is; future loadRecords will parse again
+        return;
+      }
+    } catch(e){}
+  })();
+
+  // Load-on-start: if nothing in storage, write demo in wrapper format for metadata
+  (function ensureDemoStored(){
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      const meta = { lastSavedAt: new Date().toISOString(), lastSavedBy: { id: 'demo', name: 'Demo' } };
+      const toStore = { _meta: meta, records: demoData };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
+    }
+  })();
+
+  // Update loadRecords function now that we store wrapper { _meta, records }
+  function loadRecords(){
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return demoData;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed && parsed.records && Array.isArray(parsed.records)) return parsed.records;
+      // fallback: if parsed looks like old flat array inside object
+      return demoData;
+    } catch(e){ return demoData; }
+  }
+
+  // update to show nothing at start
+  renderStudent(null);
+
+</script>
+</body>
+</html>

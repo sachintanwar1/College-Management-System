@@ -1,0 +1,76 @@
+<!-- templates/report_template.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Student Report — Face Attendance (Printable)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    /* Minimal print-friendly styling */
+    body { font-family: Arial, Helvetica, sans-serif; margin: 24px; color: #222; }
+    header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+    .brand { font-weight:700; font-size:20px; color:#2b5fd6; }
+    .meta { text-align:right; font-size:12px; color:#666; }
+    h2 { margin:6px 0 12px 0; }
+    table { width:100%; border-collapse: collapse; margin-top:8px; }
+    table th, table td { border:1px solid #ddd; padding:8px; text-align:left; }
+    tfoot td { font-weight:700; }
+    .center { text-align:center; }
+    .small { font-size:12px; color:#555; }
+    .logo { width:80px; height:auto; }
+  </style>
+</head>
+<body>
+  <!-- Render server-side with student data: replace placeholders with real values -->
+  <header>
+    <div>
+      <div class="brand">Face Attendance System</div>
+      <div class="small">Comprehensive Semester Report</div>
+    </div>
+    <div class="meta">
+      <div>Generated: {{ generated_at }}</div>
+      <div>Prepared by: {{ prepared_by }}</div>
+    </div>
+  </header>
+
+  <section>
+    <h2>Student: {{ student.name }} — {{ student.student_id }}</h2>
+    <div class="small">Class: {{ student.class }} • Roll: {{ student.roll_no }}</div>
+  </section>
+
+  <section style="margin-top:16px;">
+    <table>
+      <thead>
+        <tr><th class="center">Semester</th><th class="center">Year</th><th class="center">Marks</th><th class="center">GPA</th></tr>
+      </thead>
+      <tbody>
+        <!-- Example loop (Jinja-like). Replace with server template engine syntax -->
+        {% for sem in student.semesters %}
+        <tr>
+          <td class="center">{{ sem.sem }}</td>
+          <td class="center">{{ sem.year }}</td>
+          <td class="center">{{ sem.marks }}</td>
+          <td class="center">{{ sem.gpa }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="2" class="center">Aggregate</td>
+          <td class="center">{{ total_marks }}</td>
+          <td class="center">{{ avg_gpa }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </section>
+
+  <section style="margin-top:18px;">
+    <h4>Remarks</h4>
+    <p class="small">{{ remarks }}</p>
+  </section>
+
+  <footer style="margin-top:40px; font-size:12px; color:#666;">
+    <div>Note: This report is computer generated and valid without a signature when issued by the Face Attendance System.</div>
+  </footer>
+</body>
+</html>

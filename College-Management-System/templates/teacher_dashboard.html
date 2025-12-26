@@ -1,0 +1,285 @@
+<!-- templates/teacher_dashboard.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Teacher Dashboard — Face Attendance</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; background:#f6f8fb; padding:20px;}
+    .brand { color:#4e73df; font-weight:700; }
+    .card { border-radius:10px; box-shadow: 0 8px 20px rgba(20,30,60,0.06); }
+    .small-muted{ color:#6b7280; }
+    table th, table td { vertical-align: middle; }
+    .btn-primary-custom { background: linear-gradient(90deg,#4e73df,#2b5fd6); border:none; color:#fff; border-radius:999px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <div class="brand fs-4">Face Attendance — Teacher Dashboard</div>
+        <div class="small-muted">Upload sessional marks, manage entries, and publish results for students.</div>
+      </div>
+      <div>
+        <a href="/results" class="btn btn-outline-secondary btn-sm">Open Results</a>
+        <a href="/attendance" class="btn btn-outline-secondary btn-sm">Live Attendance</a>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <!-- Upload CSV -->
+      <div class="col-lg-6">
+        <div class="card p-3">
+          <h5>Upload Sessional Marks (CSV)</h5>
+          <p class="small-muted mb-2">CSV format: <code>student_id,name,class,roll_no,semester,marks,gpa</code>. Header row optional.</p>
+          <input id="csvFile" type="file" accept=".csv,text/csv" class="form-control mb-2">
+          <div class="d-flex gap-2 mb-2">
+            <button id="parseCsvBtn" class="btn btn-primary-custom btn-sm">Parse & Preview</button>
+            <button id="publishCsvBtn" class="btn btn-outline-success btn-sm">Publish to Results</button>
+            <button id="clearPreviewBtn" class="btn btn-outline-secondary btn-sm">Clear</button>
+          </div>
+
+          <div id="csvPreviewWrap" style="display:none;">
+            <h6 class="mt-2">Preview</h6>
+            <div style="max-height:260px; overflow:auto;">
+              <table id="previewTable" class="table table-sm table-bordered bg-white"></table>
+            </div>
+          </div>
+
+          <div class="mt-3 small text-muted">
+            Tip: Publishing will save to browser localStorage (demo) or POST to the server if you enable the API call (see JS comment).
+          </div>
+        </div>
+      </div>
+
+      <!-- Single entry editor -->
+      <div class="col-lg-6">
+        <div class="card p-3">
+          <h5>Add / Edit Single Entry</h5>
+          <form id="singleEntryForm" class="row g-2">
+            <div class="col-6"><input id="stuId" placeholder="Student ID" class="form-control"></div>
+            <div class="col-6"><input id="stuName" placeholder="Name" class="form-control"></div>
+            <div class="col-4"><input id="stuClass" placeholder="Class" class="form-control"></div>
+            <div class="col-4"><input id="stuRoll" placeholder="Roll No" class="form-control"></div>
+            <div class="col-4"><input id="stuSem" placeholder="Sem (1-8)" class="form-control" type="number" min="1" max="8"></div>
+            <div class="col-6"><input id="stuMarks" placeholder="Marks" class="form-control" type="number"></div>
+            <div class="col-6"><input id="stuGpa" placeholder="GPA" class="form-control" type="number" step="0.01"></div>
+            <div class="col-12 d-flex gap-2">
+              <button id="addEntryBtn" type="button" class="btn btn-outline-primary btn-sm">Add / Update</button>
+              <button id="saveAllBtn" type="button" class="btn btn-primary-custom btn-sm">Save All</button>
+              <button id="exportCsvBtn" type="button" class="btn btn-outline-secondary btn-sm">Export CSV</button>
+            </div>
+          </form>
+
+          <div class="mt-3 small text-muted">Saved marks become visible to results page. For production, implement server-side storage and authentication; the code below contains a placeholder fetch call to <code>/api/upload-marks</code>.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Current marks table -->
+    <div class="row mt-3">
+      <div class="col-12">
+        <div class="card p-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <h5>Current Marks (Working Set)</h5>
+            <div class="small-muted">You can edit or delete entries before saving/publishing.</div>
+          </div>
+          <div style="max-height:420px; overflow:auto;">
+            <table id="marksTable" class="table table-sm table-striped bg-white"></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- messages -->
+    <div id="msg" class="mt-2"></div>
+  </div>
+
+  <script>
+    // Teacher Dashboard client-side logic (demo)
+    // IMPORTANT:
+    // - For production, replace localStorage usage with server-side API calls.
+    // - Endpoint suggestions: POST /api/upload-marks (bulk), POST /api/mark (single).
+    const STORAGE_KEY = 'sessional_marks_v2'; // demo key
+    let workingMarks = []; // each entry: { student_id,name,class,roll_no,semester,marks,gpa }
+
+    const qs = id => document.getElementById(id);
+    const parseCsvBtn = qs('parseCsvBtn');
+    const publishCsvBtn = qs('publishCsvBtn');
+    const previewWrap = qs('csvPreviewWrap');
+    const previewTable = qs('previewTable');
+    const clearPreviewBtn = qs('clearPreviewBtn');
+
+    function escapeHtml(s){ return String(s||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+    function renderMarksTable(){
+      const t = qs('marksTable');
+      if (!workingMarks.length) { t.innerHTML = '<thead><tr><th>No marks yet</th></tr></thead>'; return; }
+      let html = '<thead class="table-light"><tr><th>#</th><th>Student ID</th><th>Name</th><th>Class</th><th>Roll</th><th>Sem</th><th>Marks</th><th>GPA</th><th>Actions</th></tr></thead><tbody>';
+      workingMarks.forEach((m,i) => {
+        html += `<tr>
+          <td>${i+1}</td>
+          <td>${escapeHtml(m.student_id)}</td>
+          <td>${escapeHtml(m.name)}</td>
+          <td>${escapeHtml(m.class||'')}</td>
+          <td>${escapeHtml(m.roll_no||'')}</td>
+          <td>${escapeHtml(m.semester||'')}</td>
+          <td>${escapeHtml(String(m.marks||''))}</td>
+          <td>${escapeHtml(String(m.gpa||''))}</td>
+          <td>
+            <button class="btn btn-sm btn-outline-secondary" data-action="edit" data-i="${i}">Edit</button>
+            <button class="btn btn-sm btn-danger" data-action="del" data-i="${i}">Delete</button>
+          </td>
+        </tr>`;
+      });
+      html += '</tbody>';
+      t.innerHTML = html;
+      t.querySelectorAll('button[data-action]').forEach(b=>{
+        b.addEventListener('click', (ev)=>{
+          const idx = Number(ev.currentTarget.dataset.i);
+          const act = ev.currentTarget.dataset.action;
+          if (act === 'edit') fillEdit(idx);
+          if (act === 'del') { if (confirm('Delete this entry?')) { workingMarks.splice(idx,1); renderMarksTable(); } }
+        });
+      });
+    }
+
+    function fillEdit(i){
+      const m = workingMarks[i];
+      qs('stuId').value = m.student_id;
+      qs('stuName').value = m.name;
+      qs('stuClass').value = m.class||'';
+      qs('stuRoll').value = m.roll_no||'';
+      qs('stuSem').value = m.semester||'';
+      qs('stuMarks').value = m.marks||'';
+      qs('stuGpa').value = m.gpa||'';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function showMsg(txt, ttl=3000){ qs('msg').innerHTML = `<div class="alert alert-success py-1">${escapeHtml(txt)}</div>`; setTimeout(()=>qs('msg').innerHTML='', ttl); }
+
+    // CSV parsing (simple)
+    parseCsvBtn.addEventListener('click', ()=>{
+      const file = qs('csvFile').files[0];
+      if (!file) { alert('Choose a CSV file'); return; }
+      const reader = new FileReader();
+      reader.onload = e => {
+        const text = e.target.result;
+        const rows = text.split(/\r?\n/).map(r=>r.trim()).filter(Boolean);
+        if (!rows.length) { alert('Empty CSV'); return; }
+        // detect header
+        const cols0 = rows[0].split(',').map(c=>c.trim().toLowerCase());
+        const hasHeader = cols0.some(c=>/student|name|class|roll|marks|semester|gpa/.test(c));
+        const parsed = [];
+        for (let i = hasHeader ? 1 : 0; i < rows.length; i++){
+          const cols = rows[i].split(',').map(c=>c.trim());
+          if (!cols.length) continue;
+          parsed.push({
+            student_id: cols[0]||'',
+            name: cols[1]||'',
+            class: cols[2]||'',
+            roll_no: cols[3]||'',
+            semester: cols[4]||'',
+            marks: cols[5] ? Number(cols[5]) : (cols[5]===''? '' : ''),
+            gpa: cols[6] ? Number(cols[6]) : ''
+          });
+        }
+        if (!parsed.length) { alert('No rows parsed'); return; }
+        workingMarks = parsed;
+        populatePreview(parsed);
+        renderMarksTable();
+        showMsg(`Parsed ${parsed.length} rows`);
+      };
+      reader.readAsText(file);
+    });
+
+    function populatePreview(arr){
+      if (!arr.length) { previewWrap.style.display = 'none'; return; }
+      previewWrap.style.display = '';
+      let html = '<thead class="table-light"><tr><th>#</th><th>Student ID</th><th>Name</th><th>Class</th><th>Roll</th><th>Sem</th><th>Marks</th><th>GPA</th></tr></thead><tbody>';
+      arr.forEach((r,i)=> html += `<tr><td>${i+1}</td><td>${escapeHtml(r.student_id)}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.class||'')}</td><td>${escapeHtml(r.roll_no||'')}</td><td>${escapeHtml(r.semester||'')}</td><td>${escapeHtml(String(r.marks||''))}</td><td>${escapeHtml(String(r.gpa||''))}</td></tr>`);
+      html += '</tbody>';
+      previewTable.innerHTML = html;
+    }
+
+    clearPreviewBtn.addEventListener('click', ()=> { qs('csvFile').value=''; previewWrap.style.display='none'; showMsg('Preview cleared'); });
+
+    // single entry add/update
+    qs('addEntryBtn').addEventListener('click', ()=>{
+      const entry = {
+        student_id: qs('stuId').value.trim(),
+        name: qs('stuName').value.trim(),
+        class: qs('stuClass').value.trim(),
+        roll_no: qs('stuRoll').value.trim(),
+        semester: qs('stuSem').value.trim(),
+        marks: qs('stuMarks').value ? Number(qs('stuMarks').value) : '',
+        gpa: qs('stuGpa').value ? Number(qs('stuGpa').value) : ''
+      };
+      if (!entry.student_id || !entry.name) { alert('Student ID & name required'); return; }
+      const idx = workingMarks.findIndex(m=>m.student_id === entry.student_id && m.semester === entry.semester);
+      if (idx >= 0) { workingMarks[idx] = entry; showMsg('Updated entry'); } else { workingMarks.push(entry); showMsg('Added entry'); }
+      renderMarksTable();
+      // clear inputs
+      ['stuId','stuName','stuClass','stuRoll','stuSem','stuMarks','stuGpa'].forEach(id=>qs(id).value='');
+    });
+
+    // save / publish
+    qs('saveAllBtn').addEventListener('click', ()=>{
+      if (!workingMarks.length) { alert('No marks to save'); return; }
+      // Demo: store in localStorage under a wrapper with meta so student results page can consume
+      const meta = { lastSavedAt: new Date().toISOString(), lastSavedBy: { id: 'teacher_demo', name: 'Teacher Demo' } };
+      // Convert workingMarks array to student-centric records grouped by roll_no / student_id
+      // For simplicity we store as wrapper: { _meta, records: workingMarks }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ _meta: meta, records: workingMarks }));
+      showMsg('Saved locally. Students can view results.');
+      // OPTIONAL: POST to server (uncomment and change endpoint)
+      /*
+      fetch('/api/upload-marks', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ meta, records: workingMarks })
+      }).then(r=>r.json()).then(j=> showMsg('Published to server') ).catch(e=> alert('Server publish failed'));
+      */
+    });
+
+    // Publish CSV (publishCsvBtn)
+    publishCsvBtn.addEventListener('click', ()=>{
+      if (!workingMarks.length) { alert('No marks to publish'); return; }
+      // Save and also call server endpoint if available
+      const meta = { lastSavedAt: new Date().toISOString(), lastSavedBy: { id: 'teacher_demo', name: 'Teacher Demo' } };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ _meta: meta, records: workingMarks }));
+      showMsg('Published to localStorage (demo). For real deployment, POST to server API.');
+    });
+
+    qs('exportCsvBtn').addEventListener('click', ()=>{
+      if (!workingMarks.length) { alert('No marks'); return; }
+      const header = 'student_id,name,class,roll_no,semester,marks,gpa\n';
+      const rows = workingMarks.map(m=> `${m.student_id},"${m.name}",${m.class||''},${m.roll_no||''},${m.semester||''},${m.marks||''},${m.gpa||''}` );
+      const csv = header + rows.join('\n');
+      const a = document.createElement('a');
+      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+      a.download = `marks_export_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+    });
+
+    // load existing on start (if any)
+    (function init(){
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.records)) {
+          // older wrapper; flatten
+          workingMarks = parsed.records.slice();
+        } else if (Array.isArray(parsed)) {
+          workingMarks = parsed.slice();
+        } else if (parsed && parsed.records) {
+          workingMarks = parsed.records.slice();
+        }
+        renderMarksTable();
+      } catch(e){}
+    })();
+  </script>
+</body>
+</html>
