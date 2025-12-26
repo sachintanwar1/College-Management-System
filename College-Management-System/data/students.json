@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Sachin Tanwar",
+    "student_id": "22EBKCS107",
+    "class": "CS-B",
+    "roll_no": "22EBKCS107",
+    "enrolled_at": "2025-12-02T07:27:31.850348",
+    "face_image": "static\\uploads\\student_faces\\22EBKCS107_20251202072731850348_WIN_20251202_12_56_16_Pro.jpg"
+  },
+  {
+    "name": "Sachin Tanwar",
+    "student_id": "22EBKCS107",
+    "class": "CS-B",
+    "roll_no": "22EBKCS107",
+    "enrolled_at": "2025-12-02T07:47:57.975887",
+    "face_image": "static\\uploads\\student_faces\\22EBKCS107_20251202074757976885_WIN_20251202_12_56_16_Pro.jpg"
+  },
+  {
+    "name": "Sachin Tanwar",
+    "student_id": "22EBKCS107",
+    "class": "CS-B",
+    "roll_no": "22EBKCS107",
+    "enrolled_at": "2025-12-02T07:48:25.665820",
+    "face_image": "static\\uploads\\student_faces\\22EBKCS107_20251202074825665820_face.jpg"
+  },
+  {
+    "name": "Sachin",
+    "student_id": "22EBKCS107",
+    "class": "CS B",
+    "roll_no": "107",
+    "enrolled_at": "2025-12-16T12:21:16.095749",
+    "face_image": "static\\uploads\\student_faces\\22EBKCS107_20251216122116097418_face.jpg"
+  },
+  {
+    "name": "Sachin",
+    "student_id": "22EBKCS107",
+    "class": "CS B",
+    "roll_no": "107",
+    "enrolled_at": "2025-12-16T12:23:51.433679",
+    "face_image": "static\\uploads\\student_faces\\22EBKCS107_20251216122351433679_face.jpg"
+  },
+  {
+    "name": "Rohit Sharma",
+    "student_id": "Rohit123",
+    "class": "CS",
+    "roll_no": "1190",
+    "enrolled_at": "2025-12-16T12:41:26.071522",
+    "face_image": "static\\uploads\\student_faces\\Rohit123_20251216124126072562_face.jpg"
+  }
+]
